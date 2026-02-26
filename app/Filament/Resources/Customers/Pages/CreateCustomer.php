@@ -17,7 +17,7 @@ class CreateCustomer extends CreateRecord
           $this->getCancelFormAction()  // Tombol Cancel default
         ->label('Batal')
             ->color('gray'),
-      ];
+        ];
     }
 
     protected function getRedirectUrl(): string
