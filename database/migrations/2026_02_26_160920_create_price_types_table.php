@@ -13,7 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('price_types', function (Blueprint $table) {
-            $table->id();
+            $table->tinyIncrements('id');
             $table->tinyInteger('index');
             $table->string('name', 50);
         });
