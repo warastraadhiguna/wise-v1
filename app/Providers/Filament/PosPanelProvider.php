@@ -30,6 +30,7 @@ class PosPanelProvider extends PanelProvider
             ->spa()
             ->topNavigation()
             ->login()
+            ->globalSearch(false)
             ->colors([
                 'primary' => Color::Blue,
             ])
