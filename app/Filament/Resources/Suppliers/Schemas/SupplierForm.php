@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Filament\Resources\Suppliers\Schemas;
+
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
+
+class SupplierForm
+{
+    public static function configure(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Hidden::make('user_id')
+                    ->default(Auth::id()),
+                TextInput::make('name')
+                    ->label('Nama')
+                    ->required()
+                    ->maxLength(300),
+                TextInput::make('company_name')
+                    ->label('Nama Perusahaan')
+                    ->maxLength(300),
+                Textarea::make('address')
+                    ->label('Alamat')
+                    ->required()
+                    ->rows(3)
+                    ->columnSpanFull(),
+                TextInput::make('email')
+                    ->label('Email')
+                    ->email()
+                    ->maxLength(300),
+                TextInput::make('phone')
+                    ->label('No. Telepon')
+                    ->tel()
+                    ->required()
+                    ->maxLength(10),
+                TextInput::make('bank_account')
+                    ->label('Rekening Bank')
+                    ->maxLength(300),
+            ]);
+    }
+}

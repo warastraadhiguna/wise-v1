@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Filament\Resources\Customers;
+namespace App\Filament\Resources\Suppliers;
 
-use App\Filament\Resources\Customers\Pages\CreateCustomer;
-use App\Filament\Resources\Customers\Pages\EditCustomer;
-use App\Filament\Resources\Customers\Pages\ListCustomers;
-use App\Filament\Resources\Customers\Schemas\CustomerForm;
-use App\Filament\Resources\Customers\Tables\CustomersTable;
-use App\Models\Customer;
+use App\Filament\Resources\Suppliers\Pages\CreateSupplier;
+use App\Filament\Resources\Suppliers\Pages\EditSupplier;
+use App\Filament\Resources\Suppliers\Pages\ListSuppliers;
+use App\Filament\Resources\Suppliers\Schemas\SupplierForm;
+use App\Filament\Resources\Suppliers\Tables\SuppliersTable;
+use App\Models\Supplier;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -16,21 +16,21 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class CustomerResource extends Resource
+class SupplierResource extends Resource
 {
-    protected static ?string $model = Customer::class;
+    protected static ?string $model = Supplier::class;
     protected static string|\UnitEnum|null $navigationGroup = 'Data Umum';
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::Users;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::UserGroup;
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {
-        return CustomerForm::configure($schema);
+        return SupplierForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return CustomersTable::configure($table);
+        return SuppliersTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -51,9 +51,9 @@ class CustomerResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListCustomers::route('/'),
-            'create' => CreateCustomer::route('/create'),
-            'edit' => EditCustomer::route('/{record}/edit'),
+            'index' => ListSuppliers::route('/'),
+            'create' => CreateSupplier::route('/create'),
+            'edit' => EditSupplier::route('/{record}/edit'),
         ];
     }
 }
