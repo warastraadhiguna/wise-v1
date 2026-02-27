@@ -19,8 +19,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class ProductCategoryResource extends Resource
 {
     protected static ?string $model = ProductCategory::class;
-    protected static string|\UnitEnum|null $navigationGroup = 'Data Umum';
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::RectangleGroup;
+    protected static string|\UnitEnum|null $navigationGroup = 'Data Barang';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
@@ -56,4 +56,9 @@ class ProductCategoryResource extends Resource
             'edit' => EditProductCategory::route('/{record}/edit'),
         ];
     }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Jenis Barang';
+    }    
 }

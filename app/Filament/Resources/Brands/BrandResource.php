@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class BrandResource extends Resource
 {
     protected static ?string $model = Brand::class;
-    protected static string|\UnitEnum|null $navigationGroup = 'Data Umum';
+    protected static string|\UnitEnum|null $navigationGroup = 'Data Barang';
     protected static string|BackedEnum|null $navigationIcon = Heroicon::RectangleGroup;
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -56,4 +56,9 @@ class BrandResource extends Resource
             'edit' => EditBrand::route('/{record}/edit'),
         ];
     }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Merek';
+    }    
 }

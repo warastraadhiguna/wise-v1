@@ -36,7 +36,8 @@ class ProductForm
                             ->label('Satuan')
                             ->relationship('unit', 'name')
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->required(),
                     ]),
                 Grid::make(2)
                     ->columnSpanFull()
@@ -79,7 +80,9 @@ class ProductForm
                         ->maxLength(500),                        
                         TextInput::make('minimum_stock')
                             ->label('Minimum Stok')
-                            ->numeric(),
+                            ->numeric()
+                            ->default(0)
+                            ->required(),
                         Toggle::make('input_status')
                             ->label('Input Status')
                             ->default(true)
