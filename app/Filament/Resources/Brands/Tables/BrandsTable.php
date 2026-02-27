@@ -29,7 +29,7 @@ class BrandsTable
                     ->sortable(),
                 TextColumn::make('discount')
                     ->label('Diskon')
-                    ->numeric()
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 TextColumn::make('note')
                     ->label('Keterangan')

@@ -29,7 +29,7 @@ return new class extends Migration
             $table->text('description')->nullable(); 
             $table->text('unit_notes')->nullable(); 
             $table->text('price_notes')->nullable(); 
-            $table->float('minimum_stock')->default(0);          
+            $table->decimal('minimum_stock', 6 , 2)->default(0);          
             $table->boolean('input_status')->default(true);            
             $table->timestamps();
             $table->softDeletes();

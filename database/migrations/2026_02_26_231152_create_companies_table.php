@@ -19,14 +19,14 @@ return new class extends Migration
             $table->string('phone', 50);
             $table->string('email', 300)->nullable();
             $table->text('bank_account')->nullable();
-            $table->float('minimum_stock_display')->nullable();
+            $table->decimal('minimum_stock_display', 6,2)->nullable();
             $table->integer('expiration_month_limit')->nullable();
             $table->string('footer_text_1', 200)->nullable();
             $table->string('footer_text_2', 200)->nullable();         
             $table->integer('payable_due_month_limit')->nullable();               
-            $table->float('margin_limit')->nullable();
-            $table->float('ppn')->nullable(); 
-            $table->float('pph')->nullable();         
+            $table->decimal('margin_limit', 6,2)->nullable();
+            $table->decimal('ppn', 6,2)->nullable(); 
+            $table->decimal('pph', 6,2)->nullable();         
             $table->timestamps();
         });
     }

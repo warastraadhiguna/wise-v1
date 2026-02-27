@@ -42,7 +42,9 @@ class CompanyForm
                     ->schema([
                         TextInput::make('minimum_stock_display')
                             ->label('Minimum Stok Display')
-                            ->numeric(),
+                            ->numeric()
+                            ->step('0.01')
+                            ->rule('decimal:0,2'),
                         TextInput::make('expiration_month_limit')
                             ->label('Batas Expired (hari)')
                             ->numeric(),
@@ -55,13 +57,19 @@ class CompanyForm
                     ->schema([
                         TextInput::make('margin_limit')
                             ->label('Margin Limit')
-                            ->numeric(),
+                            ->numeric()
+                            ->step('0.01')
+                            ->rule('decimal:0,2'),
                         TextInput::make('ppn')
                             ->label('PPN')
-                            ->numeric(),
+                            ->numeric()
+                            ->step('0.01')
+                            ->rule('decimal:0,2'),
                         TextInput::make('pph')
                             ->label('PPH')
-                            ->numeric(),
+                            ->numeric()
+                            ->step('0.01')
+                            ->rule('decimal:0,2'),
                     ]),
                 Grid::make(2)
                     ->columnSpanFull()

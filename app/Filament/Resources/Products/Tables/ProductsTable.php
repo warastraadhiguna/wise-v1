@@ -46,7 +46,7 @@ class ProductsTable
                     ->sortable(),
                 TextColumn::make('minimum_stock')
                     ->label('Min Stok')
-                    ->numeric()
+                    ->numeric(decimalPlaces: 2)
                     ->sortable(),
                 IconColumn::make('input_status')
                     ->label('Aktif')

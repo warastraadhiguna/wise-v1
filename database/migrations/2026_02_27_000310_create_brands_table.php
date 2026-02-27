@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('user_id')->nullable();            
             $table->string('name', 100);
             $table->string('note', 200);          
-            $table->float('discount');            
+            $table->decimal('discount', 6 , 2);            
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();              
             $table->timestamps();
             $table->softDeletes();

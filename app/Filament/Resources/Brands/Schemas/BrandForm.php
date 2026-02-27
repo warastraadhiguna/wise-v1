@@ -23,6 +23,8 @@ class BrandForm
                 TextInput::make('discount')
                     ->label('Diskon')
                     ->numeric()
+                    ->step('0.01')
+                    ->rule('decimal:0,2')
                     ->required(),
                 Textarea::make('note')
                     ->label('Keterangan')

@@ -124,6 +124,8 @@ class ProductForm
                         TextInput::make('minimum_stock')
                             ->label('Minimum Stok')
                             ->numeric()
+                            ->step('0.01')
+                            ->rule('decimal:0,2')
                             ->default(0)
                             ->required(),
                         Toggle::make('input_status')
