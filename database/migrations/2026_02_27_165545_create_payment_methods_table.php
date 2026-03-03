@@ -16,6 +16,7 @@ return new class extends Migration
             $table->tinyIncrements('id');
             $table->tinyInteger('index');
             $table->string('name', 50);
+            $table->boolean('is_cash')->default(true);            
         });
 
         DB::table('payment_methods')->insert([

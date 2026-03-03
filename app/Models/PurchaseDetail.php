@@ -23,14 +23,14 @@ class PurchaseDetail extends Model
         'discount_amount',
     ];
 
-    protected static function booted(): void
-    {
-        static::creating(function (PurchaseDetail $purchaseDetail): void {
-            if ($purchaseDetail->remaining_qty === null) {
-                $purchaseDetail->remaining_qty = $purchaseDetail->qty;
-            }
-        });
-    }
+    // protected static function booted(): void
+    // {
+    //     static::creating(function (PurchaseDetail $purchaseDetail): void {
+    //         if ($purchaseDetail->remaining_qty === null) {
+    //             $purchaseDetail->remaining_qty = $purchaseDetail->qty;
+    //         }
+    //     });
+    // }
 
     public function user(): BelongsTo
     {

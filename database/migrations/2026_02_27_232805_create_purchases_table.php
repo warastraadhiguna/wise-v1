@@ -26,6 +26,8 @@ return new class extends Migration
             $table->decimal('payment_amount', 12 , 2);                          
             $table->string('reference_number', 50);   
             $table->text('note');     
+            $table->string('status', 20)->default('draft'); // draft|posted|void
+            $table->timestamp('posted_at')->nullable();
 
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();   
             $table->foreign('payment_method_id')->references('id')->on('payment_methods')->nullOnDelete();   
