@@ -18,9 +18,11 @@ use Filament\Notifications\Notification;
 use Filament\Support\Enums\Width;
 use Filament\Support\RawJs;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class PurchasesTable
@@ -62,6 +64,40 @@ class PurchasesTable
                 TextColumn::make('details_count')->counts('details')->label('Items')->sortable(),
             ])
             ->filters([
+                Filter::make('purchase_date')
+                    ->label('Tanggal Pembelian')
+                    ->schema([
+                        DatePicker::make('date_start')
+                            ->label('Dari Tanggal')
+                            ->default(today()),
+                        DatePicker::make('date_end')
+                            ->label('Sampai Tanggal')
+                            ->default(today()),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                filled($data['date_start'] ?? null),
+                                fn (Builder $query): Builder => $query->whereDate('purchase_date', '>=', $data['date_start']),
+                            )
+                            ->when(
+                                filled($data['date_end'] ?? null),
+                                fn (Builder $query): Builder => $query->whereDate('purchase_date', '<=', $data['date_end']),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if (filled($data['date_start'] ?? null)) {
+                            $indicators[] = 'Dari: ' . date('d/m/Y', strtotime((string) $data['date_start']));
+                        }
+
+                        if (filled($data['date_end'] ?? null)) {
+                            $indicators[] = 'Sampai: ' . date('d/m/Y', strtotime((string) $data['date_end']));
+                        }
+
+                        return $indicators;
+                    }),
                 TrashedFilter::make(),
             ])
             ->recordActions([

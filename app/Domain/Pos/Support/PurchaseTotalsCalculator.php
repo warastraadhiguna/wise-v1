@@ -2,8 +2,6 @@
 
 namespace App\Domain\Pos\Support;
 
-use Illuminate\Support\Collection;
-
 class PurchaseTotalsCalculator
 {
     public static function lineTotal($qty, $price, $discPercent, $discAmount): float
