@@ -23,9 +23,13 @@ return new class extends Migration
             $table->decimal('discount_amount', 12 , 2);   
             $table->decimal('ppn', 6 , 2);  
             $table->decimal('pph', 6 , 2);   
+            $table->decimal('grand_total', 16, 2)->default(0);
+            $table->decimal('paid_total', 16, 2)->default(0);
+            $table->decimal('balance_due', 16, 2)->default(0);
+            $table->string('payment_status', 20)->default('unpaid');             
             $table->decimal('payment_amount', 12 , 2);                          
-            $table->string('reference_number', 50);   
-            $table->text('note');     
+            $table->string('reference_number', 50)->nullable();   
+            $table->text('note')->nullable();     
             $table->string('status', 20)->default('draft'); // draft|posted|void
             $table->timestamp('posted_at')->nullable();
 

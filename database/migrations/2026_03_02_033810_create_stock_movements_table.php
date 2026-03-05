@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('stock_movements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();            
+            $table->unsignedSmallInteger('user_id')->nullable();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
             $table->decimal('qty_change', 16, 4); // + masuk, - keluar
             $table->string('ref_type', 30);       // PURCHASE, SALE, ADJUST, dll
@@ -22,6 +22,7 @@ return new class extends Migration
             $table->timestamp('happened_at')->useCurrent();
             $table->timestamps();
 
+            $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->index(['ref_type', 'ref_id']);
         });
     }

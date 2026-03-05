@@ -24,6 +24,10 @@ class Purchase extends Model
         'discount_amount',
         'ppn',
         'pph',
+        'grand_total',
+        'paid_total',
+        'balance_due',
+        'payment_status',
         'payment_amount',
         'reference_number',
         'note',
@@ -40,6 +44,9 @@ class Purchase extends Model
             'discount_amount' => 'decimal:2',
             'ppn' => 'decimal:2',
             'pph' => 'decimal:2',
+            'grand_total' => 'decimal:2',
+            'paid_total' => 'decimal:2',
+            'balance_due' => 'decimal:2',
             'payment_amount' => 'decimal:2',
             'posted_at' => 'datetime',
         ];
@@ -68,5 +75,10 @@ class Purchase extends Model
     public function purchaseDetails(): HasMany
     {
         return $this->details();
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PurchasePayment::class);
     }
 }

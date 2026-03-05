@@ -96,6 +96,7 @@ class PurchaseForm
                                 ->label('Disc Rp')
                                 ->type('text')
                                 ->mask(self::thousandMask())
+                                ->formatStateUsing(fn ($state) => self::formatThousandInput($state))
                                 ->dehydrateStateUsing(fn ($state) => self::dehydrateMaskedNumber($state))
                                 ->default(0)
                                 ->live(onBlur: true)
@@ -121,14 +122,9 @@ class PurchaseForm
                                 ->mask(RawJs::make(<<<'JS'
                                     $money($input, ',', '.', 0)
                                 JS))
+                                ->formatStateUsing(fn ($state) => self::formatThousandInput($state))
                                 ->extraInputAttributes(self::numericInputAttributes())
-                                ->dehydrateStateUsing(function ($state) {
-                                    if (blank($state)) {
-                                        return 0;
-                                    }
-
-                                    return preg_replace('/\D/', '', (string) $state);
-                                })
+                                ->dehydrateStateUsing(fn ($state) => self::dehydrateMaskedNumber($state))
                                 ->default(0)
                                 ->columnSpan(4),
                         ]),
@@ -267,6 +263,7 @@ class PurchaseForm
                                 ->label('Qty')
                                 ->type('text')
                                 ->mask(self::thousandMask())
+                                ->formatStateUsing(fn ($state) => self::formatThousandInput($state))
                                 ->dehydrateStateUsing(fn ($state) => self::dehydrateMaskedNumber($state))
                                 ->default(1)
                                 ->required()
@@ -278,6 +275,7 @@ class PurchaseForm
                                 ->label('Price')
                                 ->type('text')
                                 ->mask(self::thousandMask())
+                                ->formatStateUsing(fn ($state) => self::formatThousandInput($state))
                                 ->dehydrateStateUsing(fn ($state) => self::dehydrateMaskedNumber($state))
                                 ->default(0)
                                 ->required()
@@ -297,6 +295,7 @@ class PurchaseForm
                                 ->label('Disc Rp')
                                 ->type('text')
                                 ->mask(self::thousandMask())
+                                ->formatStateUsing(fn ($state) => self::formatThousandInput($state))
                                 ->dehydrateStateUsing(fn ($state) => self::dehydrateMaskedNumber($state))
                                 ->default(0)
                                 ->live(onBlur: true)
@@ -487,46 +486,25 @@ class PurchaseForm
 
     protected static function dehydrateMaskedNumber(mixed $state): int
     {
-        if (blank($state)) {
-            return 0;
-        }
+        return (int) round(self::parseLocalizedNumber($state));
+    }
 
-        return (int) preg_replace('/\D/', '', (string) $state);
+    protected static function formatThousandInput(mixed $state): string
+    {
+        return number_format(self::parseLocalizedNumber($state), 0, ',', '.');
     }
 
     protected static function parseNumber(mixed $value): float
     {
-        if (blank($value)) {
-            return 0;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        $stringValue = trim((string) $value);
-
-        if ($stringValue === '' || $stringValue === '-') {
-            return 0;
-        }
-
-        if (str_contains($stringValue, ',')) {
-            $stringValue = str_replace('.', '', $stringValue);
-            $stringValue = str_replace(',', '.', $stringValue);
-        }
-
-        if (! is_numeric($stringValue)) {
-            $stringValue = preg_replace('/[^\d.-]/', '', $stringValue);
-        }
-
-        if ($stringValue === '' || $stringValue === '-' || $stringValue === '.') {
-            return 0;
-        }
-
-        return (float) $stringValue;
+        return self::parseLocalizedNumber($value);
     }
 
     protected static function parseThousandNumber(mixed $value): float
+    {
+        return self::parseLocalizedNumber($value);
+    }
+
+    protected static function parseLocalizedNumber(mixed $value): float
     {
         if (blank($value)) {
             return 0;
@@ -536,9 +514,44 @@ class PurchaseForm
             return (float) $value;
         }
 
-        $normalized = preg_replace('/\D/', '', (string) $value);
+        $normalized = trim((string) $value);
 
-        if ($normalized === '') {
+        if ($normalized === '' || $normalized === '-') {
+            return 0;
+        }
+
+        $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
+
+        if (str_contains($normalized, '.') && str_contains($normalized, ',')) {
+            $lastDot = strrpos($normalized, '.');
+            $lastComma = strrpos($normalized, ',');
+
+            if ($lastDot !== false && $lastComma !== false && $lastDot > $lastComma) {
+                // Example: 200,000.50
+                $normalized = str_replace(',', '', $normalized);
+            } else {
+                // Example: 200.000,50
+                $normalized = str_replace('.', '', $normalized);
+                $normalized = str_replace(',', '.', $normalized);
+            }
+        } elseif (str_contains($normalized, '.')) {
+            if (preg_match('/^\d{1,3}(?:\.\d{3})+$/', $normalized)) {
+                // Example: 200.000
+                $normalized = str_replace('.', '', $normalized);
+            }
+        } elseif (str_contains($normalized, ',')) {
+            if (preg_match('/^\d{1,3}(?:,\d{3})+$/', $normalized)) {
+                // Example: 200,000
+                $normalized = str_replace(',', '', $normalized);
+            } else {
+                // Example: 200000,50
+                $normalized = str_replace(',', '.', $normalized);
+            }
+        }
+
+        $normalized = preg_replace('/[^\d.-]/', '', $normalized);
+
+        if ($normalized === '' || $normalized === '-' || $normalized === '.' || $normalized === '-.') {
             return 0;
         }
 

@@ -16,11 +16,11 @@ return new class extends Migration
             $table->unsignedSmallInteger(column: 'user_id')->nullable();   
             $table->unsignedBigInteger('purchase_id')->nullable();    
             $table->unsignedBigInteger('product_id')->nullable();    
-            $table->decimal('qty', 12 , 2);   
-            $table->decimal('remaining_qty', 12 , 2);   
-            $table->decimal('price', 16 , 2);               
-            $table->decimal('discount_percent', 6 , 2);    
-            $table->decimal('discount_amount', 12 , 2);  
+            $table->decimal('qty', 12 , 4);   
+            $table->decimal('remaining_qty', 16 , 4)->default(0);   
+            $table->decimal('price', 16 , 4);               
+            $table->decimal('discount_percent', 6 , 4);    
+            $table->decimal('discount_amount', 16 , 4);  
 
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();  
             $table->foreign('purchase_id')->references('id')->on('purchases')->nullOnDelete();  

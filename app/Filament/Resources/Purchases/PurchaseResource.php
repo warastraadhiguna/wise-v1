@@ -37,7 +37,7 @@ class PurchaseResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\PaymentsRelationManager::class,
         ];
     }
 
@@ -57,4 +57,14 @@ class PurchaseResource extends Resource
                 SoftDeletingScope::class,
             ]);
     }
+
+    public static function canEdit($record): bool
+    {
+        return $record->status === 'draft';
+    }
+
+    public static function canDelete($record): bool
+    {
+        return $record->status === 'draft';
+    }    
 }
