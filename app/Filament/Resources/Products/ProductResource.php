@@ -43,6 +43,9 @@ class ProductResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with([
+                'prices.priceType',
+            ])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

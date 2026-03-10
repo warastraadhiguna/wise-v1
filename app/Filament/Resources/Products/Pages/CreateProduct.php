@@ -10,10 +10,19 @@ use Illuminate\Validation\ValidationException;
 class CreateProduct extends CreateRecord
 {
     protected static string $resource = ProductResource::class;
+    protected array $priceMap = [];
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $this->priceMap = ProductForm::normalizePriceMap($data['price_map'] ?? []);
+        unset($data['price_map']);
+
         return $this->mutateGeneratedCode($data);
+    }
+
+    protected function afterCreate(): void
+    {
+        ProductForm::syncPrices($this->record, $this->priceMap);
     }
 
     protected function getFormActions(): array

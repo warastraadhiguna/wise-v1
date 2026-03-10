@@ -13,10 +13,26 @@ use Illuminate\Validation\ValidationException;
 class EditProduct extends EditRecord
 {
     protected static string $resource = ProductResource::class;
+    protected array $priceMap = [];
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['price_map'] = ProductForm::buildPriceMapFromProduct($this->record);
+
+        return $data;
+    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $this->priceMap = ProductForm::normalizePriceMap($data['price_map'] ?? []);
+        unset($data['price_map']);
+
         return $this->mutateGeneratedCode($data);
+    }
+
+    protected function afterSave(): void
+    {
+        ProductForm::syncPrices($this->record, $this->priceMap);
     }
 
     protected function getHeaderActions(): array
