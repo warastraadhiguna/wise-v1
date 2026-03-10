@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Pos\Actions\RecalculatePurchasePaymentSummary;
 use App\Models\Purchase;
 use Illuminate\Support\Facades\Route;
 
@@ -20,3 +21,15 @@ Route::middleware('auth')->get('/purchases/{purchase}/print', function (int $pur
         'purchase' => $purchase,
     ]);
 })->name('purchases.print');
+
+Route::middleware('auth')->delete('/purchases/{purchase}/payments/{payment}', function (Purchase $purchase, int $payment) {
+    $paymentRecord = $purchase->payments()
+        ->whereKey($payment)
+        ->firstOrFail();
+
+    $paymentRecord->delete();
+
+    app(RecalculatePurchasePaymentSummary::class)->handle((int) $purchase->id);
+
+    return back();
+})->name('purchases.payments.destroy');

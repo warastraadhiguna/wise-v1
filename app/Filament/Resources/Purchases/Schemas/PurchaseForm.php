@@ -11,15 +11,18 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Support\RawJs;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Livewire\Component as LivewireComponent;
 
 class PurchaseForm
 {
@@ -136,40 +139,103 @@ class PurchaseForm
                 ->columnSpanFull()
                 ->extraAttributes(self::enterKeyGuardAttributes())
                 ->schema([
-                    TextEntry::make('grand_total_preview')
-                        ->hiddenLabel()
-                        ->state(function (Get $get): string {
-                            $detailsSubtotal = self::calculateDetailsSubtotal($get('details') ?? []);
+                    Grid::make(12)
+                        ->schema([
+                            TextInput::make('barcode_scan')
+                                ->hiddenLabel()
+                                ->placeholder('Scan barcode, lalu tekan Enter')
+                                ->dehydrated(false)
+                                ->live(onBlur: true)
+                                ->maxWidth(Width::ExtraSmall)
+                                ->extraInputAttributes([
+                                    'autocomplete' => 'off',
+                                    'autocorrect' => 'off',
+                                    'autocapitalize' => 'off',
+                                    'spellcheck' => 'false',
+                                    'style' => 'height: 4.8rem; font-size: 1.125rem;',
+                                    'x-on:keydown.enter.stop.prevent' => "
+                                        if (! \$el.value.trim()) return;
+                                        \$el.dispatchEvent(new Event('change', { bubbles: true }));
+                                        \$el.blur();
+                                    ",
+                                    'x-on:purchase-focus-barcode.window' => '$nextTick(() => $el.focus())',
+                                ])
+                                ->afterStateUpdated(function ($state, Set $set, Get $get, LivewireComponent $livewire): void {
+                                    $barcode = trim((string) $state);
 
-                            $grandTotal = self::calculateGrandTotal(
-                                $detailsSubtotal,
-                                $get('discount_percent'),
-                                $get('discount_amount'),
-                                $get('ppn'),
-                                $get('pph'),
-                            );
+                                    if ($barcode === '') {
+                                        return;
+                                    }
 
-                            return number_format($grandTotal, 0, ',', '.');
-                        })
-                        ->formatStateUsing(fn ($state): HtmlString => new HtmlString(
-                            '<div style="display:flex; justify-content:flex-end; margin-bottom:.25rem;">
-                                <div style="
-                                    min-width: 20rem;
-                                    width: fit-content;
-                                    text-align: right;
-                                    padding: .9rem 1.1rem;
-                                    border-radius: .75rem;
-                                    border: 1px solid rgba(17, 24, 39, .12);
-                                    background: #f8fafc;
-                                    font-size: 2.25rem;
-                                    line-height: 1;
-                                    font-weight: 800;
-                                    letter-spacing: .02em;
-                                    font-variant-numeric: tabular-nums;
-                                ">' . e((string) $state) . '</div>
-                            </div>'
-                        ))
-                        ->html(),
+                                    $product = Product::query()
+                                        ->select(['id', 'code', 'name'])
+                                        ->where('code', $barcode)
+                                        ->first();
+
+                                    if (! $product) {
+                                        Notification::make()
+                                            ->title("Barcode '{$barcode}' tidak ditemukan.")
+                                            ->danger()
+                                            ->send();
+
+                                        $set('barcode_scan', null);
+                                        $livewire->dispatch('purchase-focus-barcode');
+
+                                        return;
+                                    }
+
+                                    $set(
+                                        'details',
+                                        self::appendScannedProductToDetails(
+                                            $get('details') ?? [],
+                                            (int) $product->id,
+                                        ),
+                                    );
+
+                                    $set('barcode_scan', null);
+                                    $livewire->dispatch('purchase-focus-barcode');
+                                })
+                                ->columnSpan(['default' => 12, 'lg' => 8]),
+                            TextEntry::make('grand_total_preview')
+                                ->hiddenLabel()
+                                ->state(function (Get $get): string {
+                                    $detailsSubtotal = self::calculateDetailsSubtotal($get('details') ?? []);
+
+                                    $grandTotal = self::calculateGrandTotal(
+                                        $detailsSubtotal,
+                                        $get('discount_percent'),
+                                        $get('discount_amount'),
+                                        $get('ppn'),
+                                        $get('pph'),
+                                    );
+
+                                    return number_format($grandTotal, 0, ',', '.');
+                                })
+                                ->formatStateUsing(fn ($state): HtmlString => new HtmlString(
+                                    '<div style="display:flex; justify-content:flex-end; margin-bottom:.25rem;">
+                                        <div style="
+                                            min-width: 24rem;
+                                            width: fit-content;
+                                            height: 4.8rem;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: flex-end;
+                                            text-align: right;
+                                            padding: .9rem 1.25rem;
+                                            border-radius: .75rem;
+                                            border: 1px solid rgba(17, 24, 39, .12);
+                                            background: #f8fafc;
+                                            font-size: 2.4rem;
+                                            line-height: 1;
+                                            font-weight: 800;
+                                            letter-spacing: .02em;
+                                            font-variant-numeric: tabular-nums;
+                                        ">' . e((string) $state) . '</div>
+                                    </div>'
+                                ))
+                                ->html()
+                                ->columnSpan(['default' => 12, 'lg' => 4]),
+                        ]),
                     Repeater::make('details')
                         ->relationship('details')
                         ->defaultItems(1)
@@ -556,5 +622,39 @@ class PurchaseForm
         }
 
         return (float) $normalized;
+    }
+
+    protected static function appendScannedProductToDetails(array $details, int $productId): array
+    {
+        foreach ($details as $key => $detail) {
+            if ((int) ($detail['product_id'] ?? 0) === $productId) {
+                $currentQty = self::parseThousandNumber($detail['qty'] ?? 0);
+                $details[$key]['qty'] = max(0, $currentQty) + 1;
+
+                return $details;
+            }
+        }
+
+        foreach ($details as $key => $detail) {
+            if (blank($detail['product_id'] ?? null)) {
+                $details[$key]['product_id'] = $productId;
+                $details[$key]['qty'] = max(1, self::parseThousandNumber($detail['qty'] ?? 1));
+                $details[$key]['price'] = self::parseThousandNumber($detail['price'] ?? 0);
+                $details[$key]['discount_percent'] = self::parseNumber($detail['discount_percent'] ?? 0);
+                $details[$key]['discount_amount'] = self::parseThousandNumber($detail['discount_amount'] ?? 0);
+
+                return $details;
+            }
+        }
+
+        $details[] = [
+            'product_id' => $productId,
+            'qty' => 1,
+            'price' => 0,
+            'discount_percent' => 0,
+            'discount_amount' => 0,
+        ];
+
+        return $details;
     }
 }

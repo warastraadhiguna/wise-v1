@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Grid;
 use Filament\Support\Enums\Width;
 use Filament\Support\RawJs;
 use Filament\Tables\Columns\TextColumn;
@@ -24,6 +25,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class PurchasesTable
 {
@@ -35,6 +37,11 @@ class PurchasesTable
                 TextColumn::make('supplier.name')->label('Supplier')->searchable(),
                 TextColumn::make('purchase_date')->date()->sortable(),
                 TextColumn::make('due_date')->date()->toggleable(),
+                TextColumn::make('paymentMethod.name')
+                    ->label('Cara Bayar')
+                    ->placeholder('-')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('status')
                     ->badge()
@@ -135,40 +142,62 @@ class PurchasesTable
                     ->label('Bayar')
                     ->icon('heroicon-o-banknotes')
                     ->color('primary')
-                    ->visible(fn (Purchase $record): bool => $record->status === 'posted' && (float) $record->balance_due > 0)
-                    ->schema([
-                        Select::make('payment_method_id')
-                            ->label('Cara Bayar')
-                            ->options(fn (): array => PaymentMethod::query()
-                                ->orderBy('index')
-                                ->pluck('name', 'id')
-                                ->all())
-                            ->required()
-                            ->searchable()
-                            ->preload(),
-                        TextInput::make('amount')
-                            ->label('Jumlah Bayar')
-                            ->type('text')
-                            ->mask(RawJs::make(<<<'JS'
-                                $money($input, ',', '.', 0)
-                            JS))
-                            ->required()
-                            ->extraInputAttributes([
-                                'class' => 'text-right',
-                                'style' => 'text-align: right;',
-                                'inputmode' => 'numeric',
-                            ]),
-                        DatePicker::make('paid_at')
-                            ->label('Tanggal Bayar')
-                            ->default(now())
-                            ->required(),
-                        TextInput::make('reference_number')
-                            ->label('No Ref')
-                            ->maxLength(100),
-                        Textarea::make('note')
-                            ->label('Catatan')
-                            ->rows(2),
-                    ])
+                    ->visible(fn (Purchase $record): bool => $record->status === 'posted')
+                    ->modalHeading(fn (Purchase $record): string => "Pembayaran Purchase {$record->number}")
+                    ->modalWidth(Width::FiveExtraLarge)
+                    ->modalContent(function (Purchase $record): View {
+                        $record->loadMissing([
+                            'paymentMethod:id,name',
+                            'payments.paymentMethod:id,name',
+                            'payments.user:id,name',
+                        ]);
+
+                        return view('filament.purchases.payments-history-modal', [
+                            'purchase' => $record,
+                        ]);
+                    })
+                    ->modalSubmitAction(fn (Action $action, Purchase $record) => (float) $record->balance_due > 0
+                        ? $action->label('Tambah Bayar')
+                        : false)
+                    ->schema(fn (Purchase $record): array => (float) $record->balance_due > 0
+                        ? [
+                            Grid::make(2)
+                                ->schema([
+                                    Select::make('payment_method_id')
+                                        ->label('Cara Bayar')
+                                        ->options(fn (): array => PaymentMethod::query()
+                                            ->orderBy('index')
+                                            ->pluck('name', 'id')
+                                            ->all())
+                                        ->required()
+                                        ->searchable()
+                                        ->preload(),
+                                    DatePicker::make('paid_at')
+                                        ->label('Tanggal Bayar')
+                                        ->default(now())
+                                        ->required(),
+                                    TextInput::make('amount')
+                                        ->label('Jumlah Bayar')
+                                        ->type('text')
+                                        ->mask(RawJs::make(<<<'JS'
+                                            $money($input, ',', '.', 0)
+                                        JS))
+                                        ->required()
+                                        ->extraInputAttributes([
+                                            'class' => 'text-left',
+                                            'style' => 'text-align: left;',
+                                            'inputmode' => 'numeric',
+                                        ]),
+                                    TextInput::make('reference_number')
+                                        ->label('No Ref')
+                                        ->maxLength(100),
+                                    Textarea::make('note')
+                                        ->label('Catatan')
+                                        ->rows(2)
+                                        ->columnSpanFull(),
+                                ]),
+                        ]
+                        : [])
                     ->action(function (Purchase $record, array $data, Action $action): void {
                         $amount = (float) (preg_replace('/\D/', '', (string) ($data['amount'] ?? 0)) ?: 0);
 
@@ -224,7 +253,20 @@ class PurchasesTable
                     ->modalSubmitActionLabel('Ya, Post')
                     ->visible(fn (Purchase $record) => $record->status === 'draft')
                     ->action(function (Purchase $record): void {
-                        app(PostPurchaseAction::class)->handle($record->id, Auth::id());
+                        try {
+                            app(PostPurchaseAction::class)->handle($record->id, Auth::id());
+                        } catch (ValidationException $exception) {
+                            $message = $exception->errors()['payment_amount'][0]
+                                ?? collect($exception->errors())->flatten()->first()
+                                ?? 'Data belum valid.';
+
+                            Notification::make()
+                                ->title((string) $message)
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title('Purchase berhasil diposting')

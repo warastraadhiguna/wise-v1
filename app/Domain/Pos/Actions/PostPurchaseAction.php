@@ -2,6 +2,7 @@
 
 namespace App\Domain\Pos\Actions;
 
+use App\Domain\Pos\Support\PurchasePaymentValidator;
 use App\Domain\Pos\Support\PurchaseTotalsCalculator;
 use App\Models\Purchase;
 use App\Models\Stock;
@@ -37,6 +38,14 @@ class PostPurchaseAction
                 $purchase->discount_amount,
                 $purchase->ppn,
                 $purchase->pph
+            );
+
+            PurchasePaymentValidator::assertPaymentMethodSelected($purchase->payment_method_id);
+
+            PurchasePaymentValidator::assertCashPaymentMatchesGrandTotal(
+                $purchase->payment_method_id,
+                (float) ($purchase->payment_amount ?? 0),
+                $grandTotal,
             );
 
             $purchase->grand_total = $grandTotal;
