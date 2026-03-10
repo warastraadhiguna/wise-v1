@@ -5,24 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Customer extends Model
+class SaleDetail extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
     protected $fillable = [
         'user_id',
-        'price_type_id',
-        'name',
-        'company_name',
-        'address',
-        'email',
-        'phone',
-        'bank_account',
-        'point',
+        'sale_id',
+        'product_id',
+        'qty',
+        'remaining_qty',
+        'price',
+        'discount_percent',
+        'discount_amount',
     ];
 
     public function user(): BelongsTo
@@ -30,13 +28,13 @@ class Customer extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function priceType(): BelongsTo
+    public function sale(): BelongsTo
     {
-        return $this->belongsTo(PriceType::class);
+        return $this->belongsTo(Sale::class);
     }
 
-    public function sales(): HasMany
+    public function product(): BelongsTo
     {
-        return $this->hasMany(Sale::class);
+        return $this->belongsTo(Product::class);
     }
 }

@@ -14,6 +14,7 @@ return [
     */
 
     'name' => env('APP_NAME', 'Laravel'),
+    'receipt_header' => env('RECEIPT_HEADER', ''),
 
     /*
     |--------------------------------------------------------------------------
