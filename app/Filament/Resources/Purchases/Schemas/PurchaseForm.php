@@ -143,7 +143,7 @@ class PurchaseForm
                         ->schema([
                             TextInput::make('barcode_scan')
                                 ->hiddenLabel()
-                                ->placeholder('Scan barcode, lalu tekan Enter')
+                                ->placeholder('Scan barcode, lalu Enter')
                                 ->dehydrated(false)
                                 ->live(onBlur: true)
                                 ->maxWidth(Width::ExtraSmall)
@@ -152,12 +152,14 @@ class PurchaseForm
                                     'autocorrect' => 'off',
                                     'autocapitalize' => 'off',
                                     'spellcheck' => 'false',
-                                    'style' => 'height: 4.8rem; font-size: 1.125rem;',
+                                    'style' => 'height: 4.8rem; font-size: 1.5rem;',
                                     'x-on:keydown.enter.stop.prevent' => "
                                         if (! \$el.value.trim()) return;
                                         \$el.dispatchEvent(new Event('change', { bubbles: true }));
                                         \$el.blur();
                                     ",
+                                    'x-data' => '{}',
+                                    'x-init' => '$nextTick(() => $el.focus())',                                    
                                     'x-on:purchase-focus-barcode.window' => '$nextTick(() => $el.focus())',
                                 ])
                                 ->afterStateUpdated(function ($state, Set $set, Get $get, LivewireComponent $livewire): void {
