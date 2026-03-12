@@ -7,9 +7,13 @@ use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
 use App\Domain\Reports\BuildDebtReceivableReport;
 use App\Domain\Reports\BuildProfitLossDetailReport;
 use App\Domain\Reports\BuildProfitLossReport;
+use App\Domain\Reports\BuildProductDetailReport;
+use App\Domain\Reports\BuildProductReport;
+use App\Domain\Reports\BuildProductSalesChartReport;
 use App\Domain\Reports\BuildPurchasesReport;
 use App\Domain\Reports\BuildReturnsReport;
 use App\Domain\Reports\BuildSalesReport;
+use App\Domain\Reports\BuildStockLedgerReport;
 use App\Models\Company;
 use App\Models\Purchase;
 use App\Models\Sale;
@@ -199,6 +203,103 @@ Route::middleware('auth')->get('/reports/debt-receivable/print', function () {
         'showDetail' => $showDetail,
     ]);
 })->name('reports.debt-receivable.print');
+
+Route::middleware('auth')->get('/reports/stock-ledger/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $productId = request()->integer('product_id');
+    $refType = request()->string('ref_type')->toString();
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildStockLedgerReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $productId ?: null,
+        $refType,
+    );
+
+    return view('reports.stock-ledger-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'rows' => $report['rows'],
+        'summary' => $report['summary'],
+    ]);
+})->name('reports.stock-ledger.print');
+
+Route::middleware('auth')->get('/reports/products/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $transactionType = request()->string('transaction_type')->toString();
+    $rankType = request()->string('rank_type')->toString();
+    $topX = request()->integer('top_x');
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildProductReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $transactionType,
+        $rankType,
+        $topX > 0 ? $topX : 10,
+    );
+
+    return view('reports.product-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'transactionLabel' => $report['transaction_label'],
+        'rankLabel' => $report['rank_label'],
+        'topX' => $report['limit'],
+        'rows' => $report['rows'],
+    ]);
+})->name('reports.products.print');
+
+Route::middleware('auth')->get('/reports/product-detail/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $productId = request()->integer('product_id');
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildProductDetailReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $productId ?: null,
+    );
+
+    return view('reports.product-detail-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'rows' => $report['rows'],
+        'summary' => $report['summary'],
+    ]);
+})->name('reports.product-detail.print');
+
+Route::middleware('auth')->get('/reports/product-sales-chart/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $productId = request()->integer('product_id');
+    $groupBy = request()->string('group_by')->toString();
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildProductSalesChartReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $productId ?: null,
+        $groupBy,
+    );
+
+    return view('reports.product-sales-chart-print', [
+        'company' => $report['company'],
+        'product' => $report['product'],
+        'periodLabel' => $report['period_label'],
+        'chartTitle' => $report['chart_title'],
+        'rows' => $report['rows'],
+        'totalQty' => $report['total_qty'],
+        'maxQty' => $report['max_qty'],
+    ]);
+})->name('reports.product-sales-chart.print');
 
 Route::middleware('auth')->get('/reports/profit-loss/print', function () {
     $dateFrom = request()->string('date_from')->toString();
