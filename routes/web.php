@@ -2,6 +2,7 @@
 
 use App\Domain\Pos\Actions\RecalculatePurchasePaymentSummary;
 use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
+use App\Domain\Reports\BuildSalesReport;
 use App\Models\Company;
 use App\Models\Purchase;
 use App\Models\Sale;
@@ -70,3 +71,26 @@ Route::middleware('auth')->delete('/sales/{sale}/payments/{payment}', function (
 
     return back();
 })->name('sales.payments.destroy');
+
+Route::middleware('auth')->get('/reports/sales/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $cashierId = request()->integer('cashier_id');
+    $showDetail = request()->boolean('detail');
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildSalesReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $cashierId ?: null,
+    );
+
+    return view('reports.sales-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'rows' => $report['rows'],
+        'grandTotal' => $report['grand_total'],
+        'showDetail' => $showDetail,
+    ]);
+})->name('reports.sales.print');
