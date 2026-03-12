@@ -4,6 +4,7 @@ use App\Domain\Pos\Actions\DeletePurchaseReturnDetailAction;
 use App\Domain\Pos\Actions\DeleteSaleReturnDetailAction;
 use App\Domain\Pos\Actions\RecalculatePurchasePaymentSummary;
 use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
+use App\Domain\Reports\BuildDebtReceivableReport;
 use App\Domain\Reports\BuildProfitLossDetailReport;
 use App\Domain\Reports\BuildProfitLossReport;
 use App\Domain\Reports\BuildPurchasesReport;
@@ -11,9 +12,7 @@ use App\Domain\Reports\BuildReturnsReport;
 use App\Domain\Reports\BuildSalesReport;
 use App\Models\Company;
 use App\Models\Purchase;
-use App\Models\PurchaseReturnDetail;
 use App\Models\Sale;
-use App\Models\SaleReturnDetail;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 
@@ -173,6 +172,33 @@ Route::middleware('auth')->get('/reports/returns/print', function () {
         'grandTotal' => $report['grand_total'],
     ]);
 })->name('reports.returns.print');
+
+Route::middleware('auth')->get('/reports/debt-receivable/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $type = request()->string('type')->toString();
+    $status = request()->string('status')->toString();
+    $showDetail = request()->boolean('detail');
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildDebtReceivableReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $type,
+        $status,
+    );
+
+    return view('reports.debt-receivable-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'typeLabel' => $report['type_label'],
+        'partnerLabel' => $report['partner_label'],
+        'rows' => $report['rows'],
+        'summary' => $report['summary'],
+        'showDetail' => $showDetail,
+    ]);
+})->name('reports.debt-receivable.print');
 
 Route::middleware('auth')->get('/reports/profit-loss/print', function () {
     $dateFrom = request()->string('date_from')->toString();
