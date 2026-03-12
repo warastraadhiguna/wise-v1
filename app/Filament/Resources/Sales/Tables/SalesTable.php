@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Sales\Tables;
 
+use App\Domain\Pos\Actions\CreateSaleReturnAction;
 use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
 use App\Domain\Pos\Actions\PostSaleAction;
 use App\Domain\Pos\Support\SaleTotalsCalculator;
@@ -12,6 +13,8 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -28,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 
 class SalesTable
@@ -151,6 +155,8 @@ class SalesTable
                             'paymentMethod:id,name',
                             'details.product:id,code,name',
                             'details.fifoAllocations.purchaseDetail:id,purchase_id',
+                            'returns.user:id,name',
+                            'returns.details.product:id,code,name',
                         ]);
 
                         return view('filament.sales.view-sale-modal', [
@@ -259,6 +265,86 @@ class SalesTable
 
                         Notification::make()
                             ->title('Pembayaran berhasil ditambahkan')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('return')
+                    ->label('Retur')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn (Sale $record): bool => $record->status === 'posted' && (self::hasSaleReturnableItems($record) || self::hasSaleReturnHistory($record)))
+                    ->modalHeading(fn (Sale $record): string => "Retur Sale {$record->number}")
+                    ->modalWidth(Width::FiveExtraLarge)
+                    ->modalSubmitAction(fn (Action $action, Sale $record) => self::hasSaleReturnableItems($record)
+                        ? $action->label('Simpan Retur')
+                        : false)
+                    ->schema(fn (Sale $record): array => [
+                        Placeholder::make('return_history')
+                            ->hiddenLabel()
+                            ->visible(fn (): bool => self::hasSaleReturnHistory($record))
+                            ->content(fn (): HtmlString => self::renderSaleReturnHistory($record))
+                            ->columnSpanFull(),
+                        Placeholder::make('return_history_only_info')
+                            ->hiddenLabel()
+                            ->visible(fn (): bool => ! self::hasSaleReturnableItems($record) && self::hasSaleReturnHistory($record))
+                            ->content('Semua item pada nota ini sudah habis diretur. Riwayat retur tetap ditampilkan, tetapi tidak bisa tambah retur baru.')
+                            ->columnSpanFull(),
+                        Grid::make(2)
+                            ->visible(fn (): bool => self::hasSaleReturnableItems($record))
+                            ->schema([
+                            DatePicker::make('return_date')
+                                ->label('Tanggal Retur')
+                                ->default(today())
+                                ->required(),
+                            Textarea::make('reason')
+                                ->label('Alasan Retur')
+                                ->required()
+                                ->rows(2),
+                        ]),
+                        Repeater::make('details')
+                            ->label('Item Retur')
+                            ->defaultItems(1)
+                            ->addActionLabel('Tambah Item')
+                            ->visible(fn (): bool => self::hasSaleReturnableItems($record))
+                            ->schema([
+                                Select::make('sale_detail_id')
+                                    ->label('Barang')
+                                    ->options(fn () => self::getSaleReturnableOptions($record))
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->helperText(fn (Get $get): ?string => self::getSaleReturnQtyHelp($record, $get('sale_detail_id'))),
+                                TextInput::make('qty')
+                                    ->label('Qty Retur')
+                                    ->numeric()
+                                    ->minValue(0.0001)
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->required(),
+                    ])
+                    ->action(function (Sale $record, array $data): void {
+                        if (! self::hasSaleReturnableItems($record)) {
+                            return;
+                        }
+
+                        try {
+                            $saleReturn = app(CreateSaleReturnAction::class)->handle($record->id, $data, (int) Auth::id());
+                        } catch (ValidationException $exception) {
+                            $message = collect($exception->errors())->flatten()->first() ?? 'Retur sale gagal diproses.';
+
+                            Notification::make()
+                                ->title((string) $message)
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Retur sale berhasil dibuat')
+                            ->body($saleReturn->number . ' | Total ' . number_format((float) $saleReturn->total_amount, 0, ',', '.'))
                             ->success()
                             ->send();
                     }),
@@ -559,6 +645,82 @@ class SalesTable
             ->value('is_cash');
 
         return $isCash === null ? true : (bool) $isCash;
+    }
+
+    protected static function hasSaleReturnableItems(Sale $record): bool
+    {
+        return $record->details()
+            ->get()
+            ->contains(fn ($detail) => self::getSaleReturnableQty($detail->id, (float) $detail->qty) > 0);
+    }
+
+    protected static function hasSaleReturnHistory(Sale $record): bool
+    {
+        return $record->returns()->exists();
+    }
+
+    protected static function getSaleReturnableOptions(Sale $record): array
+    {
+        return $record->details()
+            ->with('product:id,code,name')
+            ->get()
+            ->filter(fn ($detail) => self::getSaleReturnableQty($detail->id, (float) $detail->qty) > 0)
+            ->mapWithKeys(function ($detail): array {
+                $availableQty = self::getSaleReturnableQty($detail->id, (float) $detail->qty);
+
+                return [
+                    $detail->id => trim(($detail->product?->code ? $detail->product->code . ' - ' : '') . ($detail->product?->name ?? 'Produk'))
+                        . ' | Sisa retur: ' . number_format($availableQty, 4, ',', '.'),
+                ];
+            })
+            ->all();
+    }
+
+    protected static function getSaleReturnQtyHelp(Sale $record, mixed $saleDetailId): ?string
+    {
+        if (blank($saleDetailId)) {
+            return null;
+        }
+
+        $detail = $record->details()
+            ->whereKey($saleDetailId)
+            ->first();
+
+        if (! $detail) {
+            return null;
+        }
+
+        $availableQty = self::getSaleReturnableQty($detail->id, (float) $detail->qty);
+
+        return 'Maksimal: ' . number_format($availableQty, 4, ',', '.');
+    }
+
+    protected static function renderSaleReturnHistory(Sale $record): HtmlString
+    {
+        $returns = $record->returns()
+            ->with([
+                'user:id,name',
+                'details.product:id,code,name',
+            ])
+            ->orderByDesc('return_date')
+            ->orderByDesc('id')
+            ->get();
+
+        return new HtmlString(view('filament.sales.partials.return-history', [
+            'sale' => $record,
+            'returns' => $returns,
+            'showDelete' => true,
+        ])->render());
+    }
+
+    protected static function getSaleReturnableQty(int $saleDetailId, float $qty): float
+    {
+        $returnedQty = (float) \Illuminate\Support\Facades\DB::table('sale_return_details')
+            ->where('sale_detail_id', $saleDetailId)
+            ->whereNull('deleted_at')
+            ->sum('qty');
+
+        return round(max(0, $qty - $returnedQty), 4);
     }
 
     protected static function getDefaultPaymentMethodId(): ?int

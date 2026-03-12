@@ -4,6 +4,7 @@ namespace App\Domain\Reports;
 
 use App\Models\Company;
 use App\Models\Sale;
+use App\Models\SaleReturn;
 use Carbon\Carbon;
 
 class BuildProfitLossReport
@@ -29,8 +30,14 @@ class BuildProfitLossReport
             ->whereDate('sale_date', '<=', $to->toDateString())
             ->get();
 
-        $totalSales = round((float) $sales->sum('grand_total'), 2);
-        $totalCogs = round((float) $sales->flatMap->details->sum('fifo_cost_amount'), 2);
+        $saleReturns = SaleReturn::query()
+            ->with('details:id,sale_return_id,fifo_cost_amount')
+            ->whereDate('return_date', '>=', $from->toDateString())
+            ->whereDate('return_date', '<=', $to->toDateString())
+            ->get();
+
+        $totalSales = round((float) $sales->sum('grand_total') - (float) $saleReturns->sum('total_amount'), 2);
+        $totalCogs = round((float) $sales->flatMap->details->sum('fifo_cost_amount') - (float) $saleReturns->flatMap->details->sum('fifo_cost_amount'), 2);
         $grossProfit = round($totalSales - $totalCogs, 2);
 
         $company = Company::query()->first();

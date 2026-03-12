@@ -99,6 +99,12 @@
         </table>
     </div>
 
+    @if ($purchase->returns->isNotEmpty())
+        <div style="margin-bottom: 14px;">
+            @include('filament.purchases.partials.return-history', ['purchase' => $purchase, 'returns' => $purchase->returns->sortByDesc('return_date')->values(), 'showDelete' => true])
+        </div>
+    @endif
+
     <div style="display: flex; justify-content: flex-end;">
         <table style="width: 100%; max-width: 440px; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
             <tbody>

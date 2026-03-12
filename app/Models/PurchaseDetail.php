@@ -52,4 +52,9 @@ class PurchaseDetail extends Model
     {
         return $this->hasMany(SaleDetailFifoAllocation::class);
     }
+
+    public function returnDetails(): HasMany
+    {
+        return $this->hasMany(PurchaseReturnDetail::class);
+    }
 }

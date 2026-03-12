@@ -1,5 +1,7 @@
 <?php
 
+use App\Domain\Pos\Actions\DeletePurchaseReturnDetailAction;
+use App\Domain\Pos\Actions\DeleteSaleReturnDetailAction;
 use App\Domain\Pos\Actions\RecalculatePurchasePaymentSummary;
 use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
 use App\Domain\Reports\BuildProfitLossDetailReport;
@@ -8,8 +10,11 @@ use App\Domain\Reports\BuildPurchasesReport;
 use App\Domain\Reports\BuildSalesReport;
 use App\Models\Company;
 use App\Models\Purchase;
+use App\Models\PurchaseReturnDetail;
 use App\Models\Sale;
+use App\Models\SaleReturnDetail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 
 Route::get('/', function () {
     return view('welcome');
@@ -21,6 +26,8 @@ Route::middleware('auth')->get('/purchases/{purchase}/print', function (int $pur
             'supplier:id,name',
             'paymentMethod:id,name',
             'details.product:id,code,name',
+            'returns.user:id,name',
+            'returns.details.product:id,code,name',
         ])
         ->findOrFail($purchase);
 
@@ -41,6 +48,16 @@ Route::middleware('auth')->delete('/purchases/{purchase}/payments/{payment}', fu
     return back();
 })->name('purchases.payments.destroy');
 
+Route::middleware('auth')->delete('/purchases/{purchase}/return-details/{returnDetail}', function (Purchase $purchase, int $returnDetail) {
+    try {
+        app(DeletePurchaseReturnDetailAction::class)->handle((int) $purchase->id, $returnDetail);
+    } catch (ValidationException $exception) {
+        return back()->withErrors($exception->errors());
+    }
+
+    return back();
+})->name('purchases.return-details.destroy');
+
 Route::middleware('auth')->get('/sales/{sale}/print/{type?}', function (int $sale, string $type = 'nota') {
     abort_unless(in_array($type, ['nota', 'struk'], true), 404);
 
@@ -50,6 +67,8 @@ Route::middleware('auth')->get('/sales/{sale}/print/{type?}', function (int $sal
             'paymentMethod:id,name,is_cash',
             'details.product:id,code,name',
             'details.product.unit:id,name',
+            'returns.user:id,name',
+            'returns.details.product:id,code,name',
             'user:id,name',
         ])
         ->findOrFail($sale);
@@ -74,6 +93,16 @@ Route::middleware('auth')->delete('/sales/{sale}/payments/{payment}', function (
 
     return back();
 })->name('sales.payments.destroy');
+
+Route::middleware('auth')->delete('/sales/{sale}/return-details/{returnDetail}', function (Sale $sale, int $returnDetail) {
+    try {
+        app(DeleteSaleReturnDetailAction::class)->handle((int) $sale->id, $returnDetail);
+    } catch (ValidationException $exception) {
+        return back()->withErrors($exception->errors());
+    }
+
+    return back();
+})->name('sales.return-details.destroy');
 
 Route::middleware('auth')->get('/reports/sales/print', function () {
     $dateFrom = request()->string('date_from')->toString();

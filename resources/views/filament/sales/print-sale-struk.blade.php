@@ -280,6 +280,21 @@
                 @endif
             </tbody>
         </table>
+
+        @if ($sale->returns->isNotEmpty())
+            <div class="divider"></div>
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">Riwayat Retur</div>
+            @foreach ($sale->returns->sortByDesc('return_date') as $return)
+                <div style="font-size: 11px; margin-bottom: 8px;">
+                    <div><strong>{{ $return->number ?: ('Retur #' . $return->id) }}</strong> {{ $return->return_date?->format('d-m-Y') ?? '-' }}</div>
+                    <div>Alasan: {{ $return->reason }}</div>
+                    @foreach ($return->details as $detail)
+                        <div>{{ trim(($detail->product?->code ? $detail->product->code . ' ' : '') . ($detail->product?->name ?? '-')) }}</div>
+                        <div class="text-right">{{ $format($detail->qty) }} x {{ $format($detail->price) }} = {{ $format($detail->subtotal) }}</div>
+                    @endforeach
+                </div>
+            @endforeach
+        @endif
     </div>
 </body>
 </html>

@@ -331,6 +331,12 @@
             </tbody>
         </table>
 
+        @if ($sale->returns->isNotEmpty())
+            <div style="margin-top: 16px;">
+                @include('filament.sales.partials.return-history', ['returns' => $sale->returns->sortByDesc('return_date')->values()])
+            </div>
+        @endif
+
         <div class="totals">
             <table>
                 <tbody>

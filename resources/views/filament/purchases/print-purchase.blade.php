@@ -242,6 +242,12 @@
             </table>
         </div>
 
+        @if ($purchase->returns->isNotEmpty())
+            <div style="margin-bottom: 14px;">
+                @include('filament.purchases.partials.return-history', ['returns' => $purchase->returns->sortByDesc('return_date')->values()])
+            </div>
+        @endif
+
         <div class="summary">
             <div class="box" style="margin-bottom: 0; width: 100%; max-width: 460px;">
                 <table>

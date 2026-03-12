@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Purchases\Tables;
 
+use App\Domain\Pos\Actions\CreatePurchaseReturnAction;
 use App\Domain\Pos\Actions\RecalculatePurchasePaymentSummary;
 use App\Domain\Pos\Actions\PostPurchaseAction;
 use App\Models\PaymentMethod;
@@ -11,11 +12,14 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Width;
 use Filament\Support\RawJs;
 use Filament\Tables\Columns\TextColumn;
@@ -25,6 +29,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 
 class PurchasesTable
@@ -132,6 +137,8 @@ class PurchasesTable
                             'supplier:id,name',
                             'paymentMethod:id,name',
                             'details.product:id,code,name',
+                            'returns.user:id,name',
+                            'returns.details.product:id,code,name',
                         ]);
 
                         return view('filament.purchases.view-purchase-modal', [
@@ -243,6 +250,86 @@ class PurchasesTable
                             ->success()
                             ->send();
                     }),
+                Action::make('return')
+                    ->label('Retur')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn (Purchase $record): bool => $record->status === 'posted' && (self::hasPurchaseReturnableItems($record) || self::hasPurchaseReturnHistory($record)))
+                    ->modalHeading(fn (Purchase $record): string => "Retur Purchase {$record->number}")
+                    ->modalWidth(Width::FiveExtraLarge)
+                    ->modalSubmitAction(fn (Action $action, Purchase $record) => self::hasPurchaseReturnableItems($record)
+                        ? $action->label('Simpan Retur')
+                        : false)
+                    ->schema(fn (Purchase $record): array => [
+                        Placeholder::make('return_history')
+                            ->hiddenLabel()
+                            ->visible(fn (): bool => self::hasPurchaseReturnHistory($record))
+                            ->content(fn (): HtmlString => self::renderPurchaseReturnHistory($record))
+                            ->columnSpanFull(),
+                        Placeholder::make('return_history_only_info')
+                            ->hiddenLabel()
+                            ->visible(fn (): bool => ! self::hasPurchaseReturnableItems($record) && self::hasPurchaseReturnHistory($record))
+                            ->content('Semua item pada nota ini sudah habis diretur. Riwayat retur tetap ditampilkan, tetapi tidak bisa tambah retur baru.')
+                            ->columnSpanFull(),
+                        Grid::make(2)
+                            ->visible(fn (): bool => self::hasPurchaseReturnableItems($record))
+                            ->schema([
+                            DatePicker::make('return_date')
+                                ->label('Tanggal Retur')
+                                ->default(today())
+                                ->required(),
+                            Textarea::make('reason')
+                                ->label('Alasan Retur')
+                                ->required()
+                                ->rows(2),
+                        ]),
+                        Repeater::make('details')
+                            ->label('Item Retur')
+                            ->defaultItems(1)
+                            ->addActionLabel('Tambah Item')
+                            ->visible(fn (): bool => self::hasPurchaseReturnableItems($record))
+                            ->schema([
+                                Select::make('purchase_detail_id')
+                                    ->label('Barang')
+                                    ->options(fn () => self::getPurchaseReturnableOptions($record))
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->helperText(fn (Get $get): ?string => self::getPurchaseReturnQtyHelp($record, $get('purchase_detail_id'))),
+                                TextInput::make('qty')
+                                    ->label('Qty Retur')
+                                    ->numeric()
+                                    ->minValue(0.0001)
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->required(),
+                    ])
+                    ->action(function (Purchase $record, array $data): void {
+                        if (! self::hasPurchaseReturnableItems($record)) {
+                            return;
+                        }
+
+                        try {
+                            $purchaseReturn = app(CreatePurchaseReturnAction::class)->handle($record->id, $data, (int) Auth::id());
+                        } catch (ValidationException $exception) {
+                            $message = collect($exception->errors())->flatten()->first() ?? 'Retur purchase gagal diproses.';
+
+                            Notification::make()
+                                ->title((string) $message)
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Retur purchase berhasil dibuat')
+                            ->body($purchaseReturn->number . ' | Total ' . number_format((float) $purchaseReturn->total_amount, 0, ',', '.'))
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('post')
                     ->label('Post')
                     ->icon('heroicon-o-check-circle')
@@ -289,5 +376,65 @@ class PurchasesTable
                 // ]),
             ])
             ->defaultSort('purchase_date', 'desc');
+    }
+
+    protected static function hasPurchaseReturnableItems(Purchase $record): bool
+    {
+        return $record->details()
+            ->where('remaining_qty', '>', 0)
+            ->exists();
+    }
+
+    protected static function hasPurchaseReturnHistory(Purchase $record): bool
+    {
+        return $record->returns()->exists();
+    }
+
+    protected static function getPurchaseReturnableOptions(Purchase $record): array
+    {
+        return $record->details()
+            ->with('product:id,code,name')
+            ->where('remaining_qty', '>', 0)
+            ->get()
+            ->mapWithKeys(fn ($detail) => [
+                $detail->id => trim(($detail->product?->code ? $detail->product->code . ' - ' : '') . ($detail->product?->name ?? 'Produk'))
+                    . ' | Sisa batch: ' . number_format((float) $detail->remaining_qty, 4, ',', '.'),
+            ])
+            ->all();
+    }
+
+    protected static function getPurchaseReturnQtyHelp(Purchase $record, mixed $purchaseDetailId): ?string
+    {
+        if (blank($purchaseDetailId)) {
+            return null;
+        }
+
+        $detail = $record->details()
+            ->whereKey($purchaseDetailId)
+            ->first();
+
+        if (! $detail) {
+            return null;
+        }
+
+        return 'Maksimal: ' . number_format((float) $detail->remaining_qty, 4, ',', '.');
+    }
+
+    protected static function renderPurchaseReturnHistory(Purchase $record): HtmlString
+    {
+        $returns = $record->returns()
+            ->with([
+                'user:id,name',
+                'details.product:id,code,name',
+            ])
+            ->orderByDesc('return_date')
+            ->orderByDesc('id')
+            ->get();
+
+        return new HtmlString(view('filament.purchases.partials.return-history', [
+            'purchase' => $record,
+            'returns' => $returns,
+            'showDelete' => true,
+        ])->render());
     }
 }

@@ -5,6 +5,7 @@ namespace App\Domain\Reports;
 use App\Domain\Pos\Support\PurchaseTotalsCalculator;
 use App\Models\Company;
 use App\Models\Purchase;
+use App\Models\PurchaseReturn;
 use Carbon\Carbon;
 
 class BuildPurchasesReport
@@ -39,11 +40,27 @@ class BuildPurchasesReport
             ->orderBy('id')
             ->get();
 
-        $rows = $purchases->values()->map(function (Purchase $purchase, int $index): array {
+        $purchaseReturns = PurchaseReturn::query()
+            ->with([
+                'purchase.supplier:id,name,company_name',
+                'purchase.paymentMethod:id,name',
+                'user:id,name',
+                'details.product:id,code,name,unit_id',
+                'details.product.unit:id,name',
+            ])
+            ->whereDate('return_date', '>=', $from->toDateString())
+            ->whereDate('return_date', '<=', $to->toDateString())
+            ->when($supplierId, fn ($query) => $query->whereHas('purchase', fn ($purchaseQuery) => $purchaseQuery->where('supplier_id', $supplierId)))
+            ->orderBy('return_date')
+            ->orderBy('posted_at')
+            ->orderBy('id')
+            ->get();
+
+        $purchaseRows = $purchases->values()->map(function (Purchase $purchase): array {
             $detailsSubtotal = PurchaseTotalsCalculator::detailsSubtotal($purchase->details);
 
             return [
-                'no' => $index + 1,
+                'sort_at' => ($purchase->posted_at ?? $purchase->purchase_date)?->timestamp ?? 0,
                 'id' => (int) $purchase->id,
                 'number' => (string) $purchase->number,
                 'transaction_at' => ($purchase->posted_at ?? $purchase->purchase_date)?->format('d M Y / H:i:s')
@@ -72,7 +89,50 @@ class BuildPurchasesReport
                     ];
                 })->all(),
             ];
-        })->all();
+        });
+
+        $returnRows = $purchaseReturns->values()->map(function (PurchaseReturn $purchaseReturn): array {
+            return [
+                'sort_at' => ($purchaseReturn->posted_at ?? $purchaseReturn->return_date)?->timestamp ?? 0,
+                'id' => (int) $purchaseReturn->id,
+                'number' => (string) ($purchaseReturn->number ?? ('RETUR-' . $purchaseReturn->id)),
+                'transaction_at' => ($purchaseReturn->posted_at ?? $purchaseReturn->return_date)?->format('d M Y / H:i:s')
+                    ?? ($purchaseReturn->return_date?->format('d M Y') ?? '-'),
+                'payment_method' => $purchaseReturn->purchase?->paymentMethod?->name ?? '-',
+                'supplier' => $purchaseReturn->purchase?->supplier?->company_name ?: $purchaseReturn->purchase?->supplier?->name ?: '-',
+                'cashier' => $purchaseReturn->user?->name ?? '-',
+                'reference_number' => $purchaseReturn->purchase?->number ?: '-',
+                'total_beli' => round((float) $purchaseReturn->total_amount * -1, 2),
+                'diskon' => 0,
+                'potongan' => 0,
+                'total_nota' => round((float) $purchaseReturn->total_amount * -1, 2),
+                'details' => collect($purchaseReturn->details)->map(function ($detail): array {
+                    return [
+                        'code' => $detail->product?->code ?? '-',
+                        'name' => $detail->product?->name ?? '-',
+                        'price' => round((float) ($detail->price ?? 0), 2),
+                        'qty' => round((float) ($detail->qty ?? 0) * -1, 4),
+                        'unit' => $detail->product?->unit?->name ?? '-',
+                        'subtotal' => round((float) ($detail->subtotal ?? 0) * -1, 2),
+                    ];
+                })->all(),
+            ];
+        });
+
+        $rows = $purchaseRows
+            ->concat($returnRows)
+            ->sortBy([
+                ['sort_at', 'asc'],
+                ['number', 'asc'],
+            ])
+            ->values()
+            ->map(function (array $row, int $index): array {
+                $row['no'] = $index + 1;
+                unset($row['sort_at']);
+
+                return $row;
+            })
+            ->all();
 
         $company = Company::query()->first();
 

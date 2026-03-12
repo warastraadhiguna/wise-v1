@@ -6,7 +6,9 @@ use App\Domain\Pos\Support\PurchaseTotalsCalculator;
 use App\Models\Company;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
+use App\Models\PurchaseReturn;
 use App\Models\Sale;
+use App\Models\SaleReturn;
 use Carbon\Carbon;
 
 class BuildProfitLossDetailReport
@@ -47,11 +49,23 @@ class BuildProfitLossDetailReport
             ->whereDate('sale_date', '<=', $to->toDateString())
             ->get();
 
+        $saleReturns = SaleReturn::query()
+            ->with('details:id,sale_return_id,fifo_cost_amount')
+            ->whereDate('return_date', '>=', $from->toDateString())
+            ->whereDate('return_date', '<=', $to->toDateString())
+            ->get();
+
         $purchases = Purchase::query()
             ->with('paymentMethod:id,is_cash')
             ->where('status', 'posted')
             ->whereDate('purchase_date', '>=', $from->toDateString())
             ->whereDate('purchase_date', '<=', $to->toDateString())
+            ->get();
+
+        $purchaseReturns = PurchaseReturn::query()
+            ->with('purchase.paymentMethod:id,is_cash')
+            ->whereDate('return_date', '>=', $from->toDateString())
+            ->whereDate('return_date', '<=', $to->toDateString())
             ->get();
 
         $inventoryLayers = PurchaseDetail::query()
@@ -64,29 +78,41 @@ class BuildProfitLossDetailReport
             ->whereNull('purchase_details.deleted_at')
             ->get();
 
-        $totalSales = round((float) $sales->sum('grand_total'), 2);
-        $cogsSold = round((float) $sales->flatMap->details->sum('fifo_cost_amount'), 2);
+        $totalSales = round((float) $sales->sum('grand_total') - (float) $saleReturns->sum('total_amount'), 2);
+        $cogsSold = round((float) $sales->flatMap->details->sum('fifo_cost_amount') - (float) $saleReturns->flatMap->details->sum('fifo_cost_amount'), 2);
         $profitInHand = round($totalSales - $cogsSold, 2);
 
-        $totalRecordedPurchases = round((float) $purchases->sum('grand_total'), 2);
+        $totalRecordedPurchases = round((float) $purchases->sum('grand_total') - (float) $purchaseReturns->sum('total_amount'), 2);
         $cashPurchases = round((float) $purchases
             ->filter(fn (Purchase $purchase) => (bool) ($purchase->paymentMethod?->is_cash ?? false))
-            ->sum('grand_total'), 2);
+            ->sum('grand_total') - (float) $purchaseReturns
+            ->filter(fn (PurchaseReturn $return) => (bool) ($return->purchase?->paymentMethod?->is_cash ?? false))
+            ->sum('total_amount'), 2);
         $creditPurchases = round((float) $purchases
             ->filter(fn (Purchase $purchase) => ! (bool) ($purchase->paymentMethod?->is_cash ?? false))
-            ->sum('grand_total'), 2);
+            ->sum('grand_total') - (float) $purchaseReturns
+            ->filter(fn (PurchaseReturn $return) => ! (bool) ($return->purchase?->paymentMethod?->is_cash ?? false))
+            ->sum('total_amount'), 2);
         $creditPaidPurchases = round((float) $purchases
             ->filter(fn (Purchase $purchase) => ! (bool) ($purchase->paymentMethod?->is_cash ?? false) && $purchase->payment_status === 'paid')
-            ->sum('grand_total'), 2);
+            ->sum('grand_total') - (float) $purchaseReturns
+            ->filter(fn (PurchaseReturn $return) => ! (bool) ($return->purchase?->paymentMethod?->is_cash ?? false) && $return->purchase?->payment_status === 'paid')
+            ->sum('total_amount'), 2);
         $creditUnpaidPurchases = round((float) $purchases
             ->filter(fn (Purchase $purchase) => ! (bool) ($purchase->paymentMethod?->is_cash ?? false) && $purchase->payment_status !== 'paid')
-            ->sum('grand_total'), 2);
+            ->sum('grand_total') - (float) $purchaseReturns
+            ->filter(fn (PurchaseReturn $return) => ! (bool) ($return->purchase?->paymentMethod?->is_cash ?? false) && $return->purchase?->payment_status !== 'paid')
+            ->sum('total_amount'), 2);
         $debtPaid = round((float) $purchases
             ->filter(fn (Purchase $purchase) => ! (bool) ($purchase->paymentMethod?->is_cash ?? false))
-            ->sum('paid_total'), 2);
+            ->sum('paid_total') - (float) $purchaseReturns
+            ->filter(fn (PurchaseReturn $return) => ! (bool) ($return->purchase?->paymentMethod?->is_cash ?? false) && $return->purchase?->payment_status === 'paid')
+            ->sum('total_amount'), 2);
         $debtUnpaid = round((float) $purchases
             ->filter(fn (Purchase $purchase) => ! (bool) ($purchase->paymentMethod?->is_cash ?? false))
-            ->sum('balance_due'), 2);
+            ->sum('balance_due') - (float) $purchaseReturns
+            ->filter(fn (PurchaseReturn $return) => ! (bool) ($return->purchase?->paymentMethod?->is_cash ?? false) && $return->purchase?->payment_status !== 'paid')
+            ->sum('total_amount'), 2);
 
         $inventoryValue = round((float) $inventoryLayers->sum(function (PurchaseDetail $detail): float {
             $unitCost = $this->resolveUnitCost($detail);
@@ -94,6 +120,7 @@ class BuildProfitLossDetailReport
             return round((float) $detail->remaining_qty * $unitCost, 4);
         }), 2);
 
+        $debtUnpaid = max(0, $debtUnpaid);
         $totalProfit = round($profitInHand - $inventoryValue - $debtUnpaid, 2);
 
         $company = Company::query()->first();

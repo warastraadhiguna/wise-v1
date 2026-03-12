@@ -5,6 +5,7 @@ namespace App\Domain\Reports;
 use App\Domain\Pos\Support\SaleTotalsCalculator;
 use App\Models\Company;
 use App\Models\Sale;
+use App\Models\SaleReturn;
 use Carbon\Carbon;
 
 class BuildSalesReport
@@ -39,11 +40,27 @@ class BuildSalesReport
             ->orderBy('id')
             ->get();
 
-        $rows = $sales->values()->map(function (Sale $sale, int $index): array {
+        $saleReturns = SaleReturn::query()
+            ->with([
+                'sale.customer:id,name,company_name',
+                'sale.paymentMethod:id,name',
+                'user:id,name',
+                'details.product:id,code,name,unit_id',
+                'details.product.unit:id,name',
+            ])
+            ->whereDate('return_date', '>=', $from->toDateString())
+            ->whereDate('return_date', '<=', $to->toDateString())
+            ->when($cashierId, fn ($query) => $query->where('user_id', $cashierId))
+            ->orderBy('return_date')
+            ->orderBy('posted_at')
+            ->orderBy('id')
+            ->get();
+
+        $saleRows = $sales->values()->map(function (Sale $sale): array {
             $detailsSubtotal = SaleTotalsCalculator::detailsSubtotal($sale->details);
 
             return [
-                'no' => $index + 1,
+                'sort_at' => ($sale->posted_at ?? $sale->sale_date)?->timestamp ?? 0,
                 'id' => (int) $sale->id,
                 'number' => (string) $sale->number,
                 'transaction_at' => ($sale->posted_at ?? $sale->sale_date)?->format('d M Y / H:i:s')
@@ -72,7 +89,50 @@ class BuildSalesReport
                     ];
                 })->all(),
             ];
-        })->all();
+        });
+
+        $returnRows = $saleReturns->values()->map(function (SaleReturn $saleReturn): array {
+            return [
+                'sort_at' => ($saleReturn->posted_at ?? $saleReturn->return_date)?->timestamp ?? 0,
+                'id' => (int) $saleReturn->id,
+                'number' => (string) ($saleReturn->number ?? ('RETUR-' . $saleReturn->id)),
+                'transaction_at' => ($saleReturn->posted_at ?? $saleReturn->return_date)?->format('d M Y / H:i:s')
+                    ?? ($saleReturn->return_date?->format('d M Y') ?? '-'),
+                'payment_method' => $saleReturn->sale?->paymentMethod?->name ?? '-',
+                'customer' => $saleReturn->sale?->customer?->company_name ?: $saleReturn->sale?->customer?->name ?: '-',
+                'cashier' => $saleReturn->user?->name ?? '-',
+                'reference_number' => $saleReturn->sale?->number ?: '-',
+                'total_jual' => round((float) $saleReturn->total_amount * -1, 2),
+                'diskon' => 0,
+                'potongan' => 0,
+                'total_nota' => round((float) $saleReturn->total_amount * -1, 2),
+                'details' => collect($saleReturn->details)->map(function ($detail): array {
+                    return [
+                        'code' => $detail->product?->code ?? '-',
+                        'name' => $detail->product?->name ?? '-',
+                        'price' => round((float) ($detail->price ?? 0), 2),
+                        'qty' => round((float) ($detail->qty ?? 0) * -1, 4),
+                        'unit' => $detail->product?->unit?->name ?? '-',
+                        'subtotal' => round((float) ($detail->subtotal ?? 0) * -1, 2),
+                    ];
+                })->all(),
+            ];
+        });
+
+        $rows = $saleRows
+            ->concat($returnRows)
+            ->sortBy([
+                ['sort_at', 'asc'],
+                ['number', 'asc'],
+            ])
+            ->values()
+            ->map(function (array $row, int $index): array {
+                $row['no'] = $index + 1;
+                unset($row['sort_at']);
+
+                return $row;
+            })
+            ->all();
 
         $company = Company::query()->first();
 
