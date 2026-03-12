@@ -7,6 +7,7 @@ use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
 use App\Domain\Reports\BuildProfitLossDetailReport;
 use App\Domain\Reports\BuildProfitLossReport;
 use App\Domain\Reports\BuildPurchasesReport;
+use App\Domain\Reports\BuildReturnsReport;
 use App\Domain\Reports\BuildSalesReport;
 use App\Models\Company;
 use App\Models\Purchase;
@@ -149,6 +150,29 @@ Route::middleware('auth')->get('/reports/purchases/print', function () {
         'showDetail' => $showDetail,
     ]);
 })->name('reports.purchases.print');
+
+Route::middleware('auth')->get('/reports/returns/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $type = request()->string('type')->toString();
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildReturnsReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $type,
+    );
+
+    return view('reports.returns-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'type' => $report['type'],
+        'typeLabel' => $report['type_label'],
+        'rows' => $report['rows'],
+        'grandTotal' => $report['grand_total'],
+    ]);
+})->name('reports.returns.print');
 
 Route::middleware('auth')->get('/reports/profit-loss/print', function () {
     $dateFrom = request()->string('date_from')->toString();
