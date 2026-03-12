@@ -150,6 +150,7 @@ class SalesTable
                             'customer:id,name',
                             'paymentMethod:id,name',
                             'details.product:id,code,name',
+                            'details.fifoAllocations.purchaseDetail:id,purchase_id',
                         ]);
 
                         return view('filament.sales.view-sale-modal', [

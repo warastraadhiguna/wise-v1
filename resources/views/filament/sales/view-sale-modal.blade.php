@@ -22,6 +22,8 @@
     $ppnAmount = $afterHeaderDiscount * $ppnPercent / 100;
     $pphAmount = $afterHeaderDiscount * $pphPercent / 100;
     $grandTotal = max(0, $afterHeaderDiscount + $ppnAmount + $pphAmount);
+    $totalFifoCost = (float) $sale->details->sum(fn ($detail) => (float) ($detail->fifo_cost_amount ?? 0));
+    $totalMargin = (float) $sale->details->sum(fn ($detail) => (float) ($detail->margin_amount ?? 0));
 
     $format = static fn ($value): string => number_format((float) $value, 0, ',', '.');
 @endphp
@@ -73,6 +75,8 @@
                     <th style="padding: 8px 10px; text-align: right; width: 130px; border-bottom: 1px solid #e5e7eb;">Harga</th>
                     <th style="padding: 8px 10px; text-align: right; width: 90px; border-bottom: 1px solid #e5e7eb;">Disc %</th>
                     <th style="padding: 8px 10px; text-align: right; width: 130px; border-bottom: 1px solid #e5e7eb;">Disc Rp</th>
+                    <th style="padding: 8px 10px; text-align: right; width: 130px; border-bottom: 1px solid #e5e7eb;">HPP FIFO</th>
+                    <th style="padding: 8px 10px; text-align: right; width: 130px; border-bottom: 1px solid #e5e7eb;">Margin</th>
                     <th style="padding: 8px 10px; text-align: right; width: 130px; border-bottom: 1px solid #e5e7eb;">Total</th>
                 </tr>
             </thead>
@@ -83,16 +87,26 @@
                         <td style="padding: 8px 10px; border-bottom: 1px solid #f3f4f6;">
                             <div style="font-weight: 700;">{{ $detail->product?->name ?? '-' }}</div>
                             <div style="font-size: 12px; color: #6b7280;">{{ $detail->product?->code ?? '-' }}</div>
+                            @if ($detail->fifoAllocations->isNotEmpty())
+                                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                                    FIFO:
+                                    {{ $detail->fifoAllocations
+                                        ->map(fn ($allocation) => $format($allocation->qty) . ' x ' . $format($allocation->unit_cost))
+                                        ->implode(' + ') }}
+                                </div>
+                            @endif
                         </td>
                         <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6;">{{ $format($detail->qty) }}</td>
                         <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6;">{{ $format($detail->price) }}</td>
                         <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6;">{{ $format($detail->discount_percent) }}</td>
                         <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6;">{{ $format($detail->discount_amount) }}</td>
+                        <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6;">{{ $format($detail->fifo_cost_amount) }}</td>
+                        <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6; font-weight: 700; color: {{ (float) $detail->margin_amount < 0 ? '#b91c1c' : '#166534' }};">{{ $format($detail->margin_amount) }}</td>
                         <td style="padding: 8px 10px; text-align: right; border-bottom: 1px solid #f3f4f6; font-weight: 700;">{{ $format($lineTotal($detail)) }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="padding: 16px 10px; text-align: center; color: #6b7280;">Detail sale kosong.</td>
+                        <td colspan="9" style="padding: 16px 10px; text-align: center; color: #6b7280;">Detail sale kosong.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -133,6 +147,14 @@
                 <tr>
                     <th style="padding: 7px 10px; text-align: left; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">PPH (Rp)</th>
                     <td style="padding: 7px 10px; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $format($pphAmount) }}</td>
+                </tr>
+                <tr>
+                    <th style="padding: 7px 10px; text-align: left; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">Total HPP FIFO</th>
+                    <td style="padding: 7px 10px; text-align: right; border-bottom: 1px solid #e5e7eb;">{{ $format($totalFifoCost) }}</td>
+                </tr>
+                <tr>
+                    <th style="padding: 7px 10px; text-align: left; background: #f0fdf4; border-bottom: 1px solid #e5e7eb; color: #166534;">Total Margin</th>
+                    <td style="padding: 7px 10px; text-align: right; border-bottom: 1px solid #e5e7eb; color: {{ $totalMargin < 0 ? '#b91c1c' : '#166534' }}; font-weight: 700;">{{ $format($totalMargin) }}</td>
                 </tr>
                 <tr>
                     <th style="padding: 10px; text-align: left; background: #eff6ff; color: #1e3a8a; font-size: 16px;">Grand Total</th>

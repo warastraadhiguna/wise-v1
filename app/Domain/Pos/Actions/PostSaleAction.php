@@ -5,6 +5,7 @@ namespace App\Domain\Pos\Actions;
 use App\Domain\Pos\Support\SalePaymentValidator;
 use App\Domain\Pos\Support\SaleTotalsCalculator;
 use App\Models\Sale;
+use App\Models\SaleDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class PostSaleAction
 {
+    public function __construct(
+        protected AllocateSaleDetailFifoCost $allocateSaleDetailFifoCost,
+    ) {}
+
     public function handle(int $saleId, int $userId): void
     {
         DB::transaction(function () use ($saleId, $userId) {
@@ -74,8 +79,15 @@ class PostSaleAction
 
                 $newBalance = round($qtyOnHand - $qty, 4);
 
+                $fifoResult = $this->allocateSaleDetailCost($detail);
+
                 $detail->remaining_qty = $detail->qty;
+                $detail->fifo_cost_amount = $fifoResult['total_cost'];
+                $detail->margin_amount = $fifoResult['margin'];
                 $detail->save();
+
+                $detail->fifoAllocations()->delete();
+                $detail->fifoAllocations()->createMany($fifoResult['allocations']);
 
                 if (! $stock) {
                     throw ValidationException::withMessages([
@@ -128,5 +140,13 @@ class PostSaleAction
                 ($balance <= 0 ? 'paid' : 'partial');
             $sale->save();
         });
+    }
+
+    /**
+     * @return array{total_cost: float, margin: float, allocations: array<int, array<string, float|int>>}
+     */
+    protected function allocateSaleDetailCost(SaleDetail $detail): array
+    {
+        return $this->allocateSaleDetailFifoCost->handle($detail);
     }
 }
