@@ -2,6 +2,7 @@
 
 use App\Domain\Pos\Actions\RecalculatePurchasePaymentSummary;
 use App\Domain\Pos\Actions\RecalculateSalePaymentSummary;
+use App\Domain\Reports\BuildPurchasesReport;
 use App\Domain\Reports\BuildSalesReport;
 use App\Models\Company;
 use App\Models\Purchase;
@@ -94,3 +95,26 @@ Route::middleware('auth')->get('/reports/sales/print', function () {
         'showDetail' => $showDetail,
     ]);
 })->name('reports.sales.print');
+
+Route::middleware('auth')->get('/reports/purchases/print', function () {
+    $dateFrom = request()->string('date_from')->toString();
+    $dateTo = request()->string('date_to')->toString();
+    $supplierId = request()->integer('supplier_id');
+    $showDetail = request()->boolean('detail');
+
+    abort_unless(filled($dateFrom) && filled($dateTo), 404);
+
+    $report = app(BuildPurchasesReport::class)->handle(
+        $dateFrom,
+        $dateTo,
+        $supplierId ?: null,
+    );
+
+    return view('reports.purchases-print', [
+        'company' => $report['company'],
+        'periodLabel' => $report['period_label'],
+        'rows' => $report['rows'],
+        'grandTotal' => $report['grand_total'],
+        'showDetail' => $showDetail,
+    ]);
+})->name('reports.purchases.print');
