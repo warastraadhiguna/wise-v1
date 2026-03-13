@@ -21,7 +21,7 @@ class StockDetailPage extends Page
 
     protected static ?string $navigationLabel = 'Detail Stok';
 
-    protected static string | UnitEnum | null $navigationGroup = 'Laporan';
+    protected static string | UnitEnum | null $navigationGroup = 'Data Umum';
 
     protected static ?string $slug = 'reports/stock-detail';
 

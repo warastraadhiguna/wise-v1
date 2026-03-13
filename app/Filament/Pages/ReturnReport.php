@@ -17,6 +17,8 @@ class ReturnReport extends Page
 
     protected static string | UnitEnum | null $navigationGroup = 'Laporan';
 
+    protected static ?string $navigationParentItem = 'Transaksi';
+
     protected static ?string $slug = 'reports/returns';
 
     protected static ?int $navigationSort = 32;

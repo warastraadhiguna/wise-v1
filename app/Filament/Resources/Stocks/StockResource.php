@@ -15,7 +15,7 @@ class StockResource extends Resource
 {
     protected static ?string $model = Stock::class;
     protected static string|\UnitEnum|null $navigationGroup = 'Data Barang';
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::ArchiveBox;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::CircleStack;
 
     public static function table(Table $table): Table
     {
@@ -62,4 +62,3 @@ class StockResource extends Resource
             ->join('products', 'products.id', '=', 'stocks.product_id');
     }
 }
-

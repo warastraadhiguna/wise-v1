@@ -17,6 +17,8 @@ class ProfitLossReport extends Page
 
     protected static string | UnitEnum | null $navigationGroup = 'Laporan';
 
+    protected static ?string $navigationParentItem = 'Keuangan';
+
     protected static ?string $slug = 'reports/profit-loss';
 
     protected static ?int $navigationSort = 32;

@@ -17,6 +17,8 @@ class DebtReceivableReport extends Page
 
     protected static string | UnitEnum | null $navigationGroup = 'Laporan';
 
+    protected static ?string $navigationParentItem = 'Keuangan';
+
     protected static ?string $slug = 'reports/debt-receivable';
 
     protected static ?int $navigationSort = 33;
