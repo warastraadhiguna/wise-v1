@@ -20,9 +20,7 @@ use App\Models\Sale;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::redirect('/', '/pos/dashboard');
 
 Route::middleware('auth')->get('/purchases/{purchase}/print', function (int $purchase) {
     $purchase = Purchase::withTrashed()
