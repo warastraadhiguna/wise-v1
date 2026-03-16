@@ -20,8 +20,6 @@ class StockLedgerReport extends Page
 
     protected static string | UnitEnum | null $navigationGroup = 'Laporan';
 
-    protected static ?string $navigationParentItem = 'Stok';
-
     protected static ?string $slug = 'reports/stock-ledger';
 
     protected static ?int $navigationSort = 34;

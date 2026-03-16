@@ -17,8 +17,6 @@ class ProductReport extends Page
 
     protected static string | UnitEnum | null $navigationGroup = 'Laporan';
 
-    protected static ?string $navigationParentItem = 'Analitik';
-
     protected static ?string $slug = 'reports/products';
 
     protected static ?int $navigationSort = 35;
