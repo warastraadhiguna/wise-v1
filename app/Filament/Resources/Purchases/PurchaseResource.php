@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Purchases;
 
+use App\Filament\Resources\BaseResource;
 use App\Filament\Resources\Purchases\Pages\CreatePurchase;
 use App\Filament\Resources\Purchases\Pages\EditPurchase;
 use App\Filament\Resources\Purchases\Pages\ListPurchases;
@@ -9,19 +10,20 @@ use App\Filament\Resources\Purchases\Schemas\PurchaseForm;
 use App\Filament\Resources\Purchases\Tables\PurchasesTable;
 use App\Models\Purchase;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class PurchaseResource extends Resource
+class PurchaseResource extends BaseResource
 {
     protected static ?string $model = Purchase::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ShoppingCart;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Transactions';
+
     protected static ?string $recordTitleAttribute = 'Pembelian';
 
     public static function form(Schema $schema): Schema
@@ -56,13 +58,13 @@ class PurchaseResource extends Resource
             ]);
     }
 
-    public static function canEdit($record): bool
+    protected static function passesEditBusinessRules(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return $record->status === 'draft';
     }
 
-    public static function canDelete($record): bool
+    protected static function passesDeleteBusinessRules(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return $record->status === 'draft';
-    }    
+    }
 }

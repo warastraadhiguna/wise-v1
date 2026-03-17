@@ -2,19 +2,21 @@
 
 namespace App\Filament\Resources\Stocks;
 
+use App\Filament\Resources\BaseResource;
 use App\Filament\Resources\Stocks\Pages\ListStocks;
 use App\Filament\Resources\Stocks\Tables\StocksTable;
 use App\Models\Stock;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class StockResource extends Resource
+class StockResource extends BaseResource
 {
     protected static ?string $model = Stock::class;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Data Barang';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::CircleStack;
 
     public static function table(Table $table): Table

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Brands;
 
+use App\Filament\Resources\BaseResource;
 use App\Filament\Resources\Brands\Pages\CreateBrand;
 use App\Filament\Resources\Brands\Pages\EditBrand;
 use App\Filament\Resources\Brands\Pages\ListBrands;
@@ -9,18 +10,20 @@ use App\Filament\Resources\Brands\Schemas\BrandForm;
 use App\Filament\Resources\Brands\Tables\BrandsTable;
 use App\Models\Brand;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class BrandResource extends Resource
+class BrandResource extends BaseResource
 {
     protected static ?string $model = Brand::class;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Data Barang';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::RectangleGroup;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
@@ -60,5 +63,5 @@ class BrandResource extends Resource
     public static function getNavigationLabel(): string
     {
         return 'Merek';
-    }    
+    }
 }

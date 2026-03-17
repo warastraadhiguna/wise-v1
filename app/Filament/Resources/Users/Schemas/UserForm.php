@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Support\CrudPermissionManager;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\CreateRecord;
@@ -21,13 +22,13 @@ class UserForm
                     ->email()
                     ->required(),
                 Select::make('role')
-                    ->options([
-                        'admin' => 'Administrator',
-                        'superadmin' => 'Superadmin',
-                        'user'  => 'User',
-                    ])
+                    ->options(
+                        collect(app(CrudPermissionManager::class)->roles())
+                            ->mapWithKeys(fn (string $role): array => [$role => (string) str($role)->headline()])
+                            ->all()
+                    )
                     ->required()
-                    ->default('admin'),
+                    ->default((string) config('access.default_role', 'admin')),
                 TextInput::make('password')
                     ->label('Password (kosongi jika tidak mengubah)')
                     ->password()

@@ -8,6 +8,7 @@ use App\Filament\Resources\Profiles\Pages\ListProfiles;
 use App\Filament\Resources\Profiles\Schemas\ProfileForm;
 use App\Filament\Resources\Profiles\Tables\ProfilesTable;
 use App\Models\User;
+use App\Support\CrudPermissionManager;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,21 +16,23 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+
 class ProfileResource extends Resource
 {
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::User;
+
     public static function getEloquentQuery(): Builder
     {
         $q = parent::getEloquentQuery();
 
         // superadmin boleh lihat semua; selain itu: hanya dirinya sendiri
-        return Auth::user()?->role === 'superadmin'
+        return app(CrudPermissionManager::class)->canManagePermissions(Auth::user())
             ? $q
             : $q->whereKey(Auth::id());
-    }    
-    
+    }
+
     protected static ?string $recordTitleAttribute = 'User';
 
     public static function form(Schema $schema): Schema
@@ -53,7 +56,7 @@ class ProfileResource extends Resource
     {
         return [
             'index' => ListProfiles::route('/'),
-            //'create' => CreateProfile::route('/create'),
+            // 'create' => CreateProfile::route('/create'),
             'edit' => EditProfile::route('/{record}/edit'),
         ];
     }
@@ -66,5 +69,5 @@ class ProfileResource extends Resource
     public static function getNavigationLabel(): string
     {
         return 'Profile';
-    }    
+    }
 }

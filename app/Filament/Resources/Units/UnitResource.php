@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Units;
 
+use App\Filament\Resources\BaseResource;
 use App\Filament\Resources\Units\Pages\CreateUnit;
 use App\Filament\Resources\Units\Pages\EditUnit;
 use App\Filament\Resources\Units\Pages\ListUnits;
@@ -9,18 +10,20 @@ use App\Filament\Resources\Units\Schemas\UnitForm;
 use App\Filament\Resources\Units\Tables\UnitsTable;
 use App\Models\Unit;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class UnitResource extends Resource
+class UnitResource extends BaseResource
 {
     protected static ?string $model = Unit::class;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Data Barang';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::PuzzlePiece;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
@@ -60,5 +63,5 @@ class UnitResource extends Resource
     public static function getNavigationLabel(): string
     {
         return 'Satuan';
-    }    
+    }
 }
